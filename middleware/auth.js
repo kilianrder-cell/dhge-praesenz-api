@@ -11,7 +11,10 @@ async function verifyToken(req, res, next) {
   try {
     // Token verifizieren – derselbe JWT_SECRET wie im Mock-IdP
     // Schlägt fehl wenn der Token abgelaufen, manipuliert oder ungültig ist
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+  issuer: 'dhge-mock-idp',
+  audience: 'dhge-praesenz-api'
+});
 
     // Just-in-Time Provisioning:
     // Beim allerersten Login wird der Nutzer automatisch angelegt.
