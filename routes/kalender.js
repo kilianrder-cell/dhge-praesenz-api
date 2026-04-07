@@ -1,16 +1,18 @@
+// routes/kalender.js
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const ical = require('node-ical');
-const { verifyToken } = require('../middleware/auth');
 const { requireRole } = require('../middleware/roles');
 
-// Endpunkt 1: Dozent speichert seine persönliche ICS-URL
-// PUT statt POST, weil wir einen bestehenden Nutzerdatensatz aktualisieren
-router.put('/ics-url', verifyToken, requireRole('dozent'), async (req, res) => {
+// verifyToken wird bereits in server.js auf alle /api/kalender Routen angewendet
+// Hier nur noch requireRole für die Rollenprüfung
+
+// PUT /api/kalender/ics-url
+// Dozent speichert seine persönliche ICS-URL
+router.put('/ics-url', requireRole('dozent'), async (req, res) => {
   const { ics_url } = req.body;
 
-  // Einfache Validierung: Ist es überhaupt eine URL?
   if (!ics_url || !ics_url.startsWith('http')) {
     return res.status(400).json({ error: 'Ungültige URL' });
   }
@@ -18,18 +20,19 @@ router.put('/ics-url', verifyToken, requireRole('dozent'), async (req, res) => {
   try {
     await db.query(
       'UPDATE nutzer SET ics_url = $1 WHERE id = $2',
-      [ics_url, req.user.id] // req.user.id kommt aus dem JWT, den auth.js ausliest
+      [ics_url, req.user.id]
     );
     res.json({ message: 'ICS-URL erfolgreich gespeichert' });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Datenbankfehler' });
   }
 });
 
-// Endpunkt 2: Dozent löst den Import manuell aus
-router.post('/import', verifyToken, requireRole('dozent'), async (req, res) => {
+// POST /api/kalender/import
+// Dozent löst den Kalenderimport manuell aus
+router.post('/import', requireRole('dozent'), async (req, res) => {
   try {
-    // Hole die gespeicherte URL aus der Datenbank
     const result = await db.query(
       'SELECT ics_url FROM nutzer WHERE id = $1',
       [req.user.id]
@@ -40,13 +43,10 @@ router.post('/import', verifyToken, requireRole('dozent'), async (req, res) => {
       return res.status(400).json({ error: 'Keine ICS-URL hinterlegt' });
     }
 
-    // node-ical ruft die URL ab und parst die Kalenderdaten
     const events = await ical.async.fromURL(ics_url);
-    
-    // Hier folgt später die Logik, die Events in die Tabelle "einheiten" schreibt
-    // Vorerst geben wir die Events zurück, um zu prüfen ob der Import klappt
     res.json({ message: 'Import erfolgreich', anzahl: Object.keys(events).length });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Import fehlgeschlagen: ' + err.message });
   }
 });

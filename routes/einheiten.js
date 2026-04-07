@@ -41,8 +41,6 @@ router.post('/', requireRole('dozent'), async (req, res) => {
     return res.status(400).json({ error: 'Pflichtfelder fehlen' });
   }
 
-  // Einzigartiges QR-Secret für diese Einheit generieren
-  // Dieses Secret rotiert nie — nur der daraus abgeleitete Hash rotiert alle 30s
   const qrSecret = crypto.randomBytes(32).toString('hex');
 
   try {
@@ -60,10 +58,8 @@ router.post('/', requireRole('dozent'), async (req, res) => {
 });
 
 // PATCH /api/einheiten/:id/aktivieren
-// Dozent startet die Sitzung — ab jetzt können Studierende einchecken
 router.patch('/:id/aktivieren', requireRole('dozent'), async (req, res) => {
   try {
-    // Sicherstellen, dass nur der eigene Dozent aktivieren kann
     const result = await pool.query(`
       UPDATE einheiten SET status = 'aktiv'
       WHERE id = $1 AND dozent_id = $2
@@ -74,7 +70,6 @@ router.patch('/:id/aktivieren', requireRole('dozent'), async (req, res) => {
       return res.status(404).json({ error: 'Einheit nicht gefunden' });
     }
 
-    // Sofort den ersten QR-Payload zurückgeben
     const { qr_secret, id } = result.rows[0];
     const qrPayload = generateQrPayload(id, qr_secret);
 
@@ -86,7 +81,6 @@ router.patch('/:id/aktivieren', requireRole('dozent'), async (req, res) => {
 });
 
 // PATCH /api/einheiten/:id/beenden
-// Dozent beendet die Sitzung — kein weiterer Check-in möglich
 router.patch('/:id/beenden', requireRole('dozent'), async (req, res) => {
   try {
     const result = await pool.query(`
@@ -107,12 +101,13 @@ router.patch('/:id/beenden', requireRole('dozent'), async (req, res) => {
 });
 
 // GET /api/einheiten/:id/qr
-// Aktuellen QR-Payload für eine aktive Sitzung abrufen (rotiert alle 30s serverseitig)
-router.get('/:id/qr', requireRole('dozent'), async (req, res) => {
+// Zugänglich für alle authentifizierten Nutzer (Dozent UND Studierende)
+// requireRole absichtlich entfernt — Studierende brauchen diesen Endpunkt zum Einchecken
+router.get('/:id/qr', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT qr_secret, status FROM einheiten WHERE id = $1 AND dozent_id = $2',
-      [req.params.id, req.user.id]
+      'SELECT qr_secret, status FROM einheiten WHERE id = $1',
+      [req.params.id]
     );
 
     if (!result.rows[0]) {
