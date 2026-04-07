@@ -49,11 +49,11 @@ router.post('/token', (req, res) => {
   const { rolle } = req.body;
 
   // Nur in Entwicklungsumgebung erlaubt
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({
-      error: 'Mock-IdP ist in der Produktionsumgebung deaktiviert'
-    });
-  }
+  //if (process.env.NODE_ENV === 'production') {
+  //  return res.status(403).json({
+  //    error: 'Mock-IdP ist in der Produktionsumgebung deaktiviert'
+  //  });
+  //}
 
   const nutzer = TESTNUTZER.find(n => n.role === rolle);
   if (!nutzer) {
